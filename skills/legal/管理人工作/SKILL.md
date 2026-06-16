@@ -4,7 +4,7 @@ description: R1（管理人）专属Skill，覆盖管理人受理后的全部初
 version: 1.0.0
 category: 破产程序
 tags: [管理人, 破产接管, 印章管理, 财产接管, 合同处理, 管理人报酬]
-author: 潘睿律师
+author: 【律师姓名】律师
 created: 2026-04-01
 triggers:
   - 管理人接管

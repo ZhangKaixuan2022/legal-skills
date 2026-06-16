@@ -4,7 +4,7 @@ description: R1（管理人）专属Skill，覆盖破产程序中的财产全面
 version: 1.0.0
 category: 破产程序
 tags: [财产调查, 财产管理, 可撤销行为, 无效行为, 追缴出资, 破产法]
-author: 潘睿律师
+author: 【律师姓名】律师
 created: 2026-04-01
 triggers:
   - 财产调查

@@ -4,7 +4,7 @@ description: 在判决/调解完成后，系统化完成案卷归档、案件总
 version: 1.0.0
 category: 民事诉讼
 tags: [结案归档, 案件总结, 案卷移交, 费用结算, 客户回访, 档案管理]
-author: 潘睿律师
+author: 【律师姓名】律师
 created: 2026-03-29
 triggers:
   - 归档

@@ -7,7 +7,7 @@
 
 <p align="center">
   <em>法律工作不是一个提示词，而是一套可复查、可路由、可交付的流程。</em><br>
-  <strong>这个项目把个人法律工作台沉淀为可复用的 Agent Skill。</strong><br>
+  <strong>这个项目把法律工作流程沉淀为可复用的 Agent Skill。</strong><br>
   <em>现在开源。</em>
 </p>
 
@@ -78,14 +78,14 @@ rsync -a legal-skills/skills/legal/ ~/.codex/skills/legal/
 codex plugin marketplace add pa1nrui1/legal-skills --sparse .codex-plugin --sparse skills
 ```
 
-## 使用前必须修改的本地配置
+## 使用前配置
 
-本仓库保留了作者工作流中的默认执业身份和本地工作台约定。Fork 后用于你自己的执业场景时，建议先修改：
+本仓库使用通用占位符，不包含作者个人执业身份或作者本机路径。Fork 后用于自己的执业场景时，建议先配置：
 
 - `skills/legal/法律工作总控/references/practice-profile.md`
 - 文书模板中出现的律师姓名、律所名称、地址、电话、邮箱
-- `<LEGAL_WORKSPACE>`、`<LEGAL_CLIENT_LEDGER>` 等本地路径占位符
-- `~/.config/legal-regulatory/pkulaw.env` 等外部检索或法规库凭证配置
+- 工作区、客户台账、系统记录等本地保存规则
+- 外部检索或法规库所需的环境变量
 
 不要把真实客户材料、案卷、OCR 中间结果、私有台账、API key 或商业数据库凭证提交到仓库。
 
@@ -111,15 +111,14 @@ skills/legal/
 
 ## 开源范围
 
-本仓库发布的是 skill 规则、流程、模板和脚本，不包含作者本地的客户材料、业务台账、系统记录、飞书文档、私有数据库凭证或迁移备份。
+本仓库发布的是 skill 规则、流程、模板和脚本，不包含作者个人信息、作者本机路径、客户材料、业务台账、系统记录、飞书文档、私有数据库凭证或迁移备份。
 
 为了便于公开使用，开源整理时做了这些处理：
 
 - 排除原始目录中的 `_backups/`
-- 将 `/Users/panrui/.codex/skills/legal` 改为仓库内 `skills/legal`
-- 将作者本机业务工作目录改为 `<LEGAL_WORKSPACE>`
-- 将作者本机客户台账路径改为 `<LEGAL_CLIENT_LEDGER>`
-- 保留需要用户自行配置的外部服务环境变量说明
+- 删除个人执业身份、联系方式和作者本机路径
+- 将文书模板中的身份信息改为通用占位符
+- 将外部服务凭证改为显式环境变量配置
 
 ## 重要声明
 

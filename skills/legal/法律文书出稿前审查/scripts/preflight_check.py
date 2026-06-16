@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -18,15 +19,15 @@ from typing import Any
 LEGAL_DIR = Path(__file__).resolve().parents[2]
 EXPORT_SKILL_DIR = LEGAL_DIR / "法律文书模板与导出"
 PROFILES_DIR = EXPORT_SKILL_DIR / "assets" / "profiles"
-MATTER_ROOT = Path("<LEGAL_WORKSPACE>")
+MATTER_ROOT = Path(os.environ.get("LEGAL_WORKSPACE", ".")).expanduser()
 SYSTEM_RECORD_ROOT = MATTER_ROOT / "_系统记录"
 CURRENT_MATTER_PATH = SYSTEM_RECORD_ROOT / "当前事项.md"
 FIXED_IDENTITY = {
-    "律所": "广东广和（长春）律师事务所",
-    "律师": "潘睿",
-    "地址": "净月区华荣泰七栋608室",
-    "电话": "18686488305",
-    "邮箱": "418869057@qq.com",
+    "律所": os.environ.get("LEGAL_FIRM_NAME", "【律师事务所名称】"),
+    "律师": os.environ.get("LEGAL_LAWYER_NAME", "【律师姓名】"),
+    "地址": os.environ.get("LEGAL_FIRM_ADDRESS", "【律所地址】"),
+    "电话": os.environ.get("LEGAL_LAWYER_PHONE", "【联系电话】"),
+    "邮箱": os.environ.get("LEGAL_LAWYER_EMAIL", "【电子邮箱】"),
 }
 OLD_CONTACT_PATTERNS = [
     re.compile(r"1[3-9]\d{9}"),
@@ -156,12 +157,14 @@ def split_md_row(line: str) -> list[str]:
 def ensure_signature(html_text: str, facts: HtmlFacts) -> tuple[str, bool]:
     if facts.has_signature:
         return html_text, False
-    if "广东广和（长春）律师事务所" not in facts.text and "潘睿" not in facts.text:
+    firm = FIXED_IDENTITY["律所"]
+    lawyer = FIXED_IDENTITY["律师"]
+    if firm not in facts.text and lawyer not in facts.text:
         return html_text, False
     body_match = BODY_RE.search(html_text)
     signature = (
-        "\n<p class=\"signature\">广东广和（长春）律师事务所</p>"
-        "\n<p class=\"signature\">律师：潘睿</p>"
+        f"\n<p class=\"signature\">{firm}</p>"
+        f"\n<p class=\"signature\">律师：{lawyer}</p>"
     )
     if body_match:
         insert_at = body_match.end(1)
@@ -172,14 +175,17 @@ def ensure_signature(html_text: str, facts: HtmlFacts) -> tuple[str, bool]:
 def fix_identity(html_text: str) -> tuple[str, list[str]]:
     changes: list[str] = []
     fixed = html_text
-    if "广东广和（长春）律师事务所" not in fixed and "律师：潘睿" in fixed:
-        fixed = fixed.replace("律师：潘睿", "广东广和（长春）律师事务所\n律师：潘睿")
-        changes.append("补入固定律所名称")
-    if "潘睿" not in fixed:
-        fixed = fixed.replace("</body>", "<p class=\"signature\">律师：潘睿</p>\n</body>")
-        changes.append("补入固定律师姓名")
+    firm = FIXED_IDENTITY["律所"]
+    lawyer = FIXED_IDENTITY["律师"]
+    lawyer_line = f"律师：{lawyer}"
+    if firm not in fixed and lawyer_line in fixed:
+        fixed = fixed.replace(lawyer_line, f"{firm}\n{lawyer_line}")
+        changes.append("补入律所名称")
+    if lawyer not in fixed:
+        fixed = fixed.replace("</body>", f"<p class=\"signature\">{lawyer_line}</p>\n</body>")
+        changes.append("补入律师姓名")
     fixed_lines: list[str] = []
-    identity_markers = ["潘睿", "律师", "律所", "广东广和", "电话", "邮箱"]
+    identity_markers = [lawyer, "律师", "律所", firm, "电话", "邮箱"]
     for line in fixed.splitlines():
         new_line = line
         if any(marker in line for marker in identity_markers):

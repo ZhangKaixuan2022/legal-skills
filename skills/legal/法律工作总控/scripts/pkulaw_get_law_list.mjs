@@ -1,15 +1,12 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
 const endpoint = process.env.PKULAW_MCP_URL || "https://apim-gateway.pkulaw.com/mcp-law";
-const configPath =
-  process.env.PKULAW_ENV_FILE ||
-  path.join(os.homedir(), ".config", "legal-regulatory", "pkulaw.env");
+const configPath = process.env.PKULAW_ENV_FILE;
 
 function readEnvFile(filePath) {
+  if (!filePath) return {};
   if (!fs.existsSync(filePath)) return {};
   const env = {};
   const text = fs.readFileSync(filePath, "utf8");
@@ -34,7 +31,7 @@ const apiKey =
 
 function usage() {
   console.error("Usage: node pkulaw_get_law_list.mjs [--title TEXT] [--fulltext TEXT]");
-  console.error(`Reads credentials from env or ${configPath}`);
+  console.error("Reads credentials from environment variables or optional PKULAW_ENV_FILE.");
 }
 
 function parseArgs(argv) {
@@ -138,7 +135,7 @@ async function main() {
             protocolVersion: "2024-11-05",
             capabilities: {},
             clientInfo: {
-              name: "legal-regulatory-monitor",
+              name: "legal-skills-client",
               version: "0.1.0",
             },
           },

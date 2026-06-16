@@ -8,7 +8,7 @@
 - 连接类型：`streamablehttp`
 - 认证方式：Bearer Token 或 API Key
 - 凭证规则：只允许从环境变量或本机私有配置读取；不得写入 Skill 正文、归档文件或交付文件。
-- 默认本机私有配置：`~/.config/legal-regulatory/pkulaw.env`，权限应为 `600`。
+- 默认本机私有配置：`【法规检索凭证配置文件】`，权限应为 `600`。
 - 跑通状态：已跑通，2026-05-17 使用 Token 认证成功调用 `get_law_list`。
 
 ## get_law_list

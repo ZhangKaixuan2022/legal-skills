@@ -9,7 +9,7 @@
 - 服务地址：`https://apim-gateway.pkulaw.com/mcp-law`
 - 连接类型：`streamablehttp`
 - 认证方式：Token 认证，`Authorization: Bearer <token>`
-- 凭证位置：`~/.config/legal-regulatory/pkulaw.env`
+- 凭证位置：`【法规检索凭证配置文件】`
 - 凭证规则：不得写入 Skill 正文、归档文件、交付文件或对话输出；只允许从本机私有配置或环境变量读取。
 - 共享脚本：`skills/legal/法律工作总控/scripts/pkulaw_get_law_list.mjs`
 

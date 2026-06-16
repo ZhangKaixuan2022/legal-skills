@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "description": "Chinese legal workflow skills for AI agents: consultation, litigation, criminal defense, labor disputes, bankruptcy, contracts, compliance, legal drafting, and document export.",
   "author": {
-    "name": "Pan Rui",
-    "email": "418869057@qq.com"
+    "name": "Legal Skills Contributors"
   },
   "repository": "https://github.com/pa1nrui1/legal-skills",
   "license": "MIT",
@@ -23,7 +22,7 @@
     "displayName": "Legal Skills",
     "shortDescription": "Chinese legal workflow skills",
     "longDescription": "A Chinese legal workflow skill system for AI agents, covering legal consultation, civil litigation, criminal defense, labor disputes, bankruptcy procedures, contract drafting and review, product legal, regulatory compliance, legal research, and document export workflows.",
-    "developerName": "Pan Rui",
+    "developerName": "Legal Skills Contributors",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
     "websiteURL": "https://github.com/pa1nrui1/legal-skills",
