@@ -203,7 +203,16 @@ DOCX 文件与结构体检结果
 
 ## 快速开始
 
-### 方式一：作为普通 skills 目录安装
+### 方式一：通过 Skills CLI 安装入口 Skill
+
+```bash
+npx skills add https://github.com/pa1nrui1/legal-skills -l
+npx skills add https://github.com/pa1nrui1/legal-skills --skill china-legal-skills
+```
+
+`china-legal-skills` 是本仓库的公开入口 Skill。安装后从该入口进入，再由 `skills/legal/法律工作总控/SKILL.md` 路由到具体中文子 Skill。
+
+### 方式二：作为普通 skills 目录安装
 
 ```bash
 git clone https://github.com/pa1nrui1/legal-skills.git
@@ -229,7 +238,7 @@ rsync -a legal-skills/skills/legal/ ~/.codex/skills/legal/
 民事一审诉讼 读取这个案件材料，先做读取复查摘要，不要直接生成法律意见。
 ```
 
-### 方式二：作为 Codex plugin 安装
+### 方式三：作为 Codex plugin 安装
 
 ```bash
 codex plugin marketplace add pa1nrui1/legal-skills --sparse .codex-plugin --sparse skills
