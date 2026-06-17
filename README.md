@@ -37,7 +37,10 @@ Legal Skills 是一套开源的中文法律工作 Skill 集合，目标不是提
 
 当前公开版本重点更新：
 
+- **适配 Skills CLI / SDK 索引入口**：仓库根目录提供英文 kebab-case 入口 `china-legal-skills`，用于被 `npx skills add`、`skills find` 和 `owner/repo@skill` 形式稳定识别；中文子 Skill 保留为内部路由和工作流资源，避免中文 frontmatter name 被 slug 化为空。
 - **新增正式交付物硬闸门**：`法律工作总控` 在处理文书、报告、意见、案例汇编、证据目录、客户交付材料、法院提交材料或 `.docx` 前，会先要求区分 `工作草稿`、`律师内部报告`、`提交法院/客户的正式材料` 和 `Word正式交付物`，避免跳过材料读取、法规校验、来源边界和出稿审查直接生成正式成果。
+- **升级合同审查交付规范**：合同审查飞书正式交付必须同时包含问题卡片列表和业务流程图；用户选择修订模式时，以原合同为只读来源另行生成 Word 修订模式审核红线稿，并要求修订计划、真实修订痕迹、命中检查、清洁文本检查和逐页渲染 QA。
+- **升级诉讼可视化交付规范**：案件可视化从 6 类图扩展为 7 类图，新增金额流向图；所有正式图表必须图片化交付，争点结构图统一使用树状图/分层争点图，并增加预览稿、图表出稿前审查、律师确认和正式图片交付包链路。
 - **强化 Word 正式交付链路**：正式 `.docx` 必须经过 `draft.html`、`preflight-meta.json`、出稿前审查、`draft_checked.html`、模板导出和结构体检，只有审查状态为 `PASS` 或 `FIXED_PASS` 时才进入统一导出。
 - **收缩委托授权文件包**：公开模板中仅保留 `授权委托书` 和 `法定代表人身份证明书`，移除不适合默认开源分发的风险义务告知、委托代理合同、服务质量监督等文件。
 - **完成开源脱敏与项目说明重写**：删除作者个人执业身份、本机路径、客户台账和本地环境约定，改用通用占位符和可本地化配置说明；README 改为面向律师、法务、法律科技开发者和 Agent 使用者的专业介绍。
@@ -210,7 +213,7 @@ npx skills add https://github.com/pa1nrui1/legal-skills -l
 npx skills add https://github.com/pa1nrui1/legal-skills --skill china-legal-skills
 ```
 
-`china-legal-skills` 是本仓库的公开入口 Skill。安装后从该入口进入，再由 `skills/legal/法律工作总控/SKILL.md` 路由到具体中文子 Skill。
+`china-legal-skills` 是本仓库的公开入口 Skill。它会要求 Agent 先读取 `skills/legal/法律工作总控/SKILL.md`，把总控作为主路由和共享质量门，再进入具体中文子 Skill；仓库内相对路径均从仓库根目录解析。
 
 ### 方式二：作为普通 skills 目录安装
 
