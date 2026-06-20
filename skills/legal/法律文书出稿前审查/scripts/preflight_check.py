@@ -259,6 +259,29 @@ def validate_matter_paths(meta: dict[str, Any], issues: dict[str, list[str]]) ->
         append_issue(issues, "business", f"当前事项.md 未匹配 system_record_path：{system_record_path}")
 
 
+def validate_doc_template_requirements(meta: dict[str, Any], facts: HtmlFacts, issues: dict[str, list[str]]) -> None:
+    """Block known template-shape mistakes before formal Word export."""
+    doc_type = str(meta.get("doc_type") or "")
+    if "证据目录" not in doc_type:
+        return
+
+    if facts.has_table:
+        append_issue(
+            issues,
+            "business",
+            "证据目录必须按 templates/证据目录格式.md 的分组文本段落形式生成；未获用户明确覆盖时不得使用 table 表格。",
+        )
+
+    required_marks = ["第一组证据", "证明目的"]
+    missing = [mark for mark in required_marks if mark not in facts.text]
+    if missing:
+        append_issue(
+            issues,
+            "business",
+            "证据目录缺少模板要求的分组段落结构：" + "、".join(missing),
+        )
+
+
 def choose_status(
     issues: dict[str, list[str]],
     auto_fixes: list[str],
@@ -372,6 +395,7 @@ def check(args: argparse.Namespace) -> int:
         append_issue(issues, "business", "draft.html 正文内容过短或无法识别")
     if "p" not in facts.tags:
         append_issue(issues, "business", "draft.html 缺少 p 正文段落")
+    validate_doc_template_requirements(meta, facts, issues)
 
     profile = str(meta.get("profile") or "fallback_desktop_word")
     if not (PROFILES_DIR / f"{profile}.json").exists():
