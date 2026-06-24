@@ -19,6 +19,10 @@ def qn(local: str) -> str:
     return f"{{{W_NS}}}{local}"
 
 
+def element_text(element: ET.Element) -> str:
+    return "".join(element.itertext())
+
+
 def inspect_docx(docx_path: Path) -> dict:
     with tempfile.TemporaryDirectory(prefix="contract-redline-qa-") as tmp:
         root = Path(tmp)
@@ -32,8 +36,10 @@ def inspect_docx(docx_path: Path) -> dict:
         if not document_path.exists():
             raise FileNotFoundError("word/document.xml 不存在")
         doc_root = ET.parse(document_path).getroot()
-        ins_count = len(doc_root.findall(".//w:ins", NS))
-        del_count = len(doc_root.findall(".//w:del", NS))
+        insertions = [element_text(item) for item in doc_root.findall(".//w:ins", NS)]
+        deletions = [element_text(item) for item in doc_root.findall(".//w:del", NS)]
+        ins_count = len(insertions)
+        del_count = len(deletions)
 
         track_revisions = False
         if settings_path.exists():
@@ -57,6 +63,18 @@ def inspect_docx(docx_path: Path) -> dict:
             "deletions": del_count,
             "comments": comment_count,
             "has_comment_relationship": has_comment_rel,
+            "max_insertion_chars": max((len(text) for text in insertions), default=0),
+            "max_deletion_chars": max((len(text) for text in deletions), default=0),
+            "long_insertions": [
+                {"chars": len(text), "text": text[:120]}
+                for text in insertions
+                if len(text) > 0
+            ],
+            "long_deletions": [
+                {"chars": len(text), "text": text[:120]}
+                for text in deletions
+                if len(text) > 0
+            ],
         }
 
 
@@ -66,6 +84,18 @@ def main() -> int:
     parser.add_argument("--expect-ins", type=int, default=0, help="至少应有的 w:ins 数量")
     parser.add_argument("--expect-del", type=int, default=0, help="至少应有的 w:del 数量")
     parser.add_argument("--expect-comments", type=int, default=0, help="至少应有的批注数量")
+    parser.add_argument(
+        "--max-del-chars",
+        type=int,
+        default=80,
+        help="单处删除文本的最大字符数，用于识别整段替换噪音；0 表示不检查",
+    )
+    parser.add_argument(
+        "--max-ins-chars",
+        type=int,
+        default=220,
+        help="单处插入文本的最大字符数，用于识别过长修订噪音；0 表示不检查",
+    )
     parser.add_argument("--json", action="store_true", help="输出 JSON")
     args = parser.parse_args()
 
@@ -81,6 +111,14 @@ def main() -> int:
         failures.append(f"批注数量不足：{result['comments']} < {args.expect_comments}")
     if result["comments"] and not result["has_comment_relationship"]:
         failures.append("存在 comments.xml 但 document.xml.rels 未包含 comments.xml 关系")
+    if args.max_del_chars and result["max_deletion_chars"] > args.max_del_chars:
+        failures.append(
+            f"单处删除文本过长：{result['max_deletion_chars']} > {args.max_del_chars}，疑似整段替换"
+        )
+    if args.max_ins_chars and result["max_insertion_chars"] > args.max_ins_chars:
+        failures.append(
+            f"单处插入文本过长：{result['max_insertion_chars']} > {args.max_ins_chars}，请确认是否应拆分或改批注"
+        )
 
     result["status"] = "PASS" if not failures else "FAIL"
     result["failures"] = failures
@@ -90,6 +128,8 @@ def main() -> int:
         print(f"redline QA: {result['status']}")
         for key in ("track_revisions", "insertions", "deletions", "comments"):
             print(f"- {key}: {result[key]}")
+        print(f"- max_deletion_chars: {result['max_deletion_chars']}")
+        print(f"- max_insertion_chars: {result['max_insertion_chars']}")
         for failure in failures:
             print(f"- failure: {failure}")
     return 0 if not failures else 1

@@ -51,6 +51,8 @@ SUPPORTED_ACTIONS = {
     "none",
 }
 
+REVISION_ACTIONS = {"replace", "insert", "delete"}
+
 PLACEHOLDER_HINTS = (
     "待填写",
     "待补",
@@ -61,10 +63,25 @@ PLACEHOLDER_HINTS = (
     "负责人",
     "联系方式",
     "邮箱",
-    "附件",
+    "附件缺失",
+    "缺少附件",
+    "未提供附件",
     "____",
     "【",
 )
+
+UNCONFIRMED_ROLE_VALUES = {
+    "",
+    "待确认",
+    "待用户确认",
+    "未确认",
+    "未提及",
+    "未提及/待补充",
+    "待补充",
+    "unknown",
+    "none",
+    "null",
+}
 
 
 def qn(tag: str) -> str:
@@ -86,6 +103,20 @@ def load_plan(path: Path) -> dict[str, Any]:
     elif not isinstance(findings, list):
         raise ValueError("redline plan findings 必须是数组")
     return payload
+
+
+def validate_party_role_gate(plan: dict[str, Any]) -> None:
+    meta = plan.get("meta")
+    if not isinstance(meta, dict):
+        raise ValueError("审查立场未确认：redline plan 缺少 meta，必须先询问用户按哪一方立场审查")
+    party_role = str(meta.get("party_role") or "").strip()
+    source = str(meta.get("party_role_confirmation_source") or "").strip()
+    if not boolean_field(meta, "party_role_confirmed"):
+        raise ValueError("审查立场未确认：必须先询问用户按哪一方立场审查，并设置 meta.party_role_confirmed=true")
+    if party_role.lower() in UNCONFIRMED_ROLE_VALUES:
+        raise ValueError("审查立场未确认：meta.party_role 不能为空或待确认")
+    if not source:
+        raise ValueError("审查立场未确认：缺少 meta.party_role_confirmation_source")
 
 
 def normalize_action(value: Any) -> str:
@@ -117,6 +148,8 @@ def has_placeholder_hint(finding: dict[str, Any]) -> bool:
             "suggestion",
             "target_text",
             "original_text",
+            "replacement_text",
+            "insert_text",
         )
     )
     return any(hint in haystack for hint in PLACEHOLDER_HINTS)
@@ -136,13 +169,19 @@ def resolve_action(finding: dict[str, Any]) -> str:
     requested = normalize_action(finding.get("action"))
     if requested not in SUPPORTED_ACTIONS:
         raise ValueError(f"不支持的 action: {finding.get('action')}")
+    handling = str(finding.get("handling_advice") or "").strip()
+    needs_confirmation = has_placeholder_hint(finding) or handling == "需客户确认"
     if requested != "auto":
         if requested == "report_only":
             return "report-only"
+        if requested in REVISION_ACTIONS:
+            if needs_confirmation and not boolean_field(finding, "allow_unconfirmed_revision"):
+                return "comment"
+            if handling == "可优化" and not boolean_field(finding, "allow_direct_revision"):
+                return "report-only"
         return requested
 
-    handling = str(finding.get("handling_advice") or "").strip()
-    if has_placeholder_hint(finding) or handling == "需客户确认":
+    if needs_confirmation:
         return "comment"
     if handling == "可优化":
         return "report-only"
@@ -163,12 +202,24 @@ def selector_value(finding: dict[str, Any], key: str) -> Any:
 
 
 def target_text_for(finding: dict[str, Any]) -> str:
-    for key in ("target_text", "original_text"):
-        value = finding.get(key)
-        if value is not None:
-            return str(value)
+    value = finding.get("target_text")
+    if value is not None:
+        return str(value)
     value = selector_value(finding, "contains")
+    if value is not None:
+        return str(value)
+    value = finding.get("original_text")
     return str(value) if value is not None else ""
+
+
+def looks_like_full_paragraph_change(target: str, paragraph_text: str) -> bool:
+    target_clean = target.strip()
+    paragraph_clean = paragraph_text.strip()
+    if not target_clean or not paragraph_clean or len(target_clean) < 20:
+        return False
+    if target_clean == paragraph_clean:
+        return True
+    return len(target_clean) / len(paragraph_clean) >= 0.85
 
 
 def get_text(element: ET.Element) -> str:
@@ -222,6 +273,33 @@ class Match:
     index: int
 
 
+@dataclass
+class RevisionOp:
+    result: dict[str, Any]
+    finding: dict[str, Any]
+    action: str
+    paragraph: ET.Element
+    index: int
+    target: str
+    replacement: str | None
+    comment: str | None
+
+
+@dataclass
+class CommentOp:
+    result: dict[str, Any]
+    paragraph: ET.Element
+    comment: str
+
+
+@dataclass
+class InsertOp:
+    result: dict[str, Any]
+    paragraph: ET.Element
+    insert_text: str
+    comment: str | None
+
+
 class RedlineEditor:
     def __init__(self, unpacked_dir: Path, *, author: str, organization: str = ""):
         self.unpacked_dir = unpacked_dir
@@ -239,6 +317,7 @@ class RedlineEditor:
 
     def save(self) -> None:
         self._ensure_track_revisions()
+        self._remove_stale_ignorable_namespaces()
         self.tree.write(self.document_path, encoding="utf-8", xml_declaration=True)
         if self._comments_tree is not None:
             self._comments_tree.write(
@@ -246,6 +325,11 @@ class RedlineEditor:
                 encoding="utf-8",
                 xml_declaration=True,
             )
+
+    def _remove_stale_ignorable_namespaces(self) -> None:
+        for key in list(self.root.attrib):
+            if key.endswith("}Ignorable") or key == "Ignorable":
+                del self.root.attrib[key]
 
     def _next_change_id(self) -> int:
         max_id = -1
@@ -414,6 +498,15 @@ class RedlineEditor:
         target = target_text_for(finding)
         if not target:
             raise ValueError("replace 缺少 target_text/original_text/selector.contains")
+        if (
+            looks_like_full_paragraph_change(target, match.text)
+            and not boolean_field(finding, "allow_full_paragraph_replace")
+        ):
+            raise ValueError(
+                "疑似整段替换：请将 target_text 拆成最小待修改文本，"
+                "完整条款原文仅放 original_text；确需整段重写时设置 "
+                "allow_full_paragraph_replace=true 并说明原因"
+            )
         before = match.text[: match.index]
         after = match.text[match.index + len(target) :]
         self._rewrite_paragraph(
@@ -434,6 +527,14 @@ class RedlineEditor:
         target = target_text_for(finding)
         if not target:
             raise ValueError("delete 缺少 target_text/original_text/selector.contains")
+        if (
+            looks_like_full_paragraph_change(target, match.text)
+            and not boolean_field(finding, "allow_full_paragraph_replace")
+        ):
+            raise ValueError(
+                "疑似整段删除：请将 target_text 拆成最小待删除文本；"
+                "确需整段删除时设置 allow_full_paragraph_replace=true 并说明原因"
+            )
         before = match.text[: match.index]
         after = match.text[match.index + len(target) :]
         self._rewrite_paragraph(
@@ -453,10 +554,19 @@ class RedlineEditor:
         if not insert_text:
             raise ValueError("insert 缺少 insert_text/replacement_text")
         match = self.resolve_paragraph(finding, action="insert")
-        parent = self._find_parent(self.root, match.paragraph)
+        self.insert_after_paragraph(match.paragraph, str(insert_text), comment=comment)
+        return "已在目标段落后插入文本"
+
+    def insert_after_paragraph(
+        self,
+        paragraph: ET.Element,
+        insert_text: str,
+        comment: str | None = None,
+    ) -> None:
+        parent = self._find_parent(self.root, paragraph)
         if parent is None:
             raise ValueError("未找到插入段落父节点")
-        idx = list(parent).index(match.paragraph)
+        idx = list(parent).index(paragraph)
         para = ET.Element(qn("w:p"))
         para.append(
             make_ins(
@@ -468,8 +578,7 @@ class RedlineEditor:
         )
         parent.insert(idx + 1, para)
         if comment:
-            self.add_comment(match.paragraph, comment)
-        return "已在目标段落后插入文本"
+            self.add_comment(paragraph, comment)
 
     def add_comment_by_finding(self, finding: dict[str, Any], comment: str) -> str:
         match = self.resolve_paragraph(finding, action="comment")
@@ -585,14 +694,18 @@ def revision_comment(finding: dict[str, Any]) -> str | None:
     return None
 
 
-def apply_finding(editor: RedlineEditor, finding: dict[str, Any]) -> dict[str, Any]:
-    result = {
+def empty_result(finding: dict[str, Any]) -> dict[str, Any]:
+    return {
         "id": finding.get("id"),
         "requested_action": normalize_action(finding.get("action")),
         "action": None,
         "status": "skipped",
         "message": "",
     }
+
+
+def apply_finding(editor: RedlineEditor, finding: dict[str, Any]) -> dict[str, Any]:
+    result = empty_result(finding)
     try:
         action = resolve_action(finding)
         result["action"] = action
@@ -618,6 +731,136 @@ def apply_finding(editor: RedlineEditor, finding: dict[str, Any]) -> dict[str, A
         result["status"] = "failed"
         result["message"] = str(exc)
     return result
+
+
+def collect_finding(
+    editor: RedlineEditor,
+    finding: dict[str, Any],
+) -> tuple[dict[str, Any], RevisionOp | CommentOp | InsertOp | None]:
+    result = empty_result(finding)
+    try:
+        action = resolve_action(finding)
+        result["action"] = action
+        if action in {"skip", "none"}:
+            result["message"] = "按计划跳过"
+            return result, None
+        if action == "report-only":
+            result["status"] = "report_only"
+            result["message"] = "仅写入审查意见书，不写入 Word 正文"
+            return result, None
+        if action == "comment":
+            match = editor.resolve_paragraph(finding, action="comment")
+            return result, CommentOp(result, match.paragraph, build_comment(finding))
+        if action == "insert":
+            insert_text = finding.get("insert_text") or finding.get("replacement_text")
+            if not insert_text:
+                raise ValueError("insert 缺少 insert_text/replacement_text")
+            match = editor.resolve_paragraph(finding, action="insert")
+            return result, InsertOp(result, match.paragraph, str(insert_text), revision_comment(finding))
+        if action in {"replace", "delete"}:
+            target = target_text_for(finding)
+            if not target:
+                raise ValueError(f"{action} 缺少 target_text/original_text/selector.contains")
+            if action == "replace" and finding.get("replacement_text") is None:
+                raise ValueError("replace 缺少 replacement_text")
+            match = editor.resolve_paragraph(finding, action=action)
+            if (
+                looks_like_full_paragraph_change(target, match.text)
+                and not boolean_field(finding, "allow_full_paragraph_replace")
+            ):
+                verb = "替换" if action == "replace" else "删除"
+                raise ValueError(
+                    f"疑似整段{verb}：请将 target_text 拆成最小待修改文本，"
+                    "完整条款原文仅放 original_text；确需整段处理时设置 "
+                    "allow_full_paragraph_replace=true 并说明原因"
+                )
+            return result, RevisionOp(
+                result=result,
+                finding=finding,
+                action=action,
+                paragraph=match.paragraph,
+                index=match.index,
+                target=target,
+                replacement=str(finding.get("replacement_text")) if action == "replace" else None,
+                comment=revision_comment(finding),
+            )
+        raise ValueError(f"不支持的 action: {action}")
+    except Exception as exc:
+        result["status"] = "failed"
+        result["message"] = str(exc)
+        return result, None
+
+
+def apply_revision_group(editor: RedlineEditor, paragraph: ET.Element, ops: list[RevisionOp]) -> None:
+    paragraph_text = get_text(paragraph)
+    ordered = sorted(ops, key=lambda item: (item.index, -(len(item.target))))
+    cursor = 0
+    segments: list[tuple[str, str]] = []
+    for op in ordered:
+        if op.index < cursor:
+            raise ValueError(f"{op.result.get('id')} 与同段其他修订范围重叠，请拆分或合并")
+        if paragraph_text[op.index : op.index + len(op.target)] != op.target:
+            raise ValueError(f"{op.result.get('id')} 目标文本位置已变化，请重新定位")
+        if op.index > cursor:
+            segments.append(("equal", paragraph_text[cursor : op.index]))
+        segments.append(("delete", op.target))
+        if op.action == "replace" and op.replacement is not None:
+            segments.append(("insert", op.replacement))
+        cursor = op.index + len(op.target)
+    if cursor < len(paragraph_text):
+        segments.append(("equal", paragraph_text[cursor:]))
+    editor._rewrite_paragraph(paragraph, segments)
+
+
+def apply_findings(editor: RedlineEditor, findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    revision_groups: dict[int, tuple[ET.Element, list[RevisionOp]]] = {}
+    comments: list[CommentOp] = []
+    inserts: list[InsertOp] = []
+
+    for finding in findings:
+        result, op = collect_finding(editor, finding)
+        results.append(result)
+        if isinstance(op, RevisionOp):
+            key = id(op.paragraph)
+            revision_groups.setdefault(key, (op.paragraph, []) )[1].append(op)
+        elif isinstance(op, CommentOp):
+            comments.append(op)
+        elif isinstance(op, InsertOp):
+            inserts.append(op)
+
+    for paragraph, ops in revision_groups.values():
+        try:
+            apply_revision_group(editor, paragraph, ops)
+            for op in ops:
+                op.result["status"] = "applied"
+                op.result["message"] = "已替换目标文本" if op.action == "replace" else "已删除目标文本"
+                if op.comment:
+                    editor.add_comment(paragraph, op.comment)
+        except Exception as exc:
+            for op in ops:
+                op.result["status"] = "failed"
+                op.result["message"] = str(exc)
+
+    for op in comments:
+        try:
+            editor.add_comment(op.paragraph, op.comment)
+            op.result["status"] = "applied"
+            op.result["message"] = "已添加批注"
+        except Exception as exc:
+            op.result["status"] = "failed"
+            op.result["message"] = str(exc)
+
+    for op in inserts:
+        try:
+            editor.insert_after_paragraph(op.paragraph, op.insert_text, comment=op.comment)
+            op.result["status"] = "applied"
+            op.result["message"] = "已在目标段落后插入文本"
+        except Exception as exc:
+            op.result["status"] = "failed"
+            op.result["message"] = str(exc)
+
+    return results
 
 
 def pack_docx(unpacked_dir: Path, output_docx: Path) -> None:
@@ -681,6 +924,7 @@ def main() -> int:
         raise FileNotFoundError(f"redline-plan 不存在: {plan_path}")
 
     plan = load_plan(plan_path)
+    validate_party_role_gate(plan)
     with tempfile.TemporaryDirectory(prefix="contract-redline-") as tmp:
         unpacked_dir = Path(tmp) / "unpacked"
         with zipfile.ZipFile(input_docx) as zf:
@@ -690,11 +934,10 @@ def main() -> int:
             author=args.author,
             organization=args.organization,
         )
-        results = [
-            apply_finding(editor, finding)
-            for finding in plan.get("findings", [])
-            if isinstance(finding, dict)
-        ]
+        results = apply_findings(
+            editor,
+            [finding for finding in plan.get("findings", []) if isinstance(finding, dict)],
+        )
         editor.save()
         pack_docx(unpacked_dir, output_docx)
 
