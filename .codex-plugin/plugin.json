@@ -1,7 +1,7 @@
 {
   "name": "legal-skills",
   "version": "0.1.0",
-  "description": "Chinese legal workflow skills for AI agents: consultation, litigation, criminal defense, labor disputes, bankruptcy, contracts, compliance, legal drafting, and document export.",
+  "description": "Chinese legal workflow skills for AI agents: enterprise legal operations, consultation, litigation, criminal defense, labor disputes, bankruptcy, contracts, compliance, legal drafting, and document export.",
   "author": {
     "name": "Legal Skills Contributors"
   },
@@ -11,6 +11,7 @@
     "legal",
     "law",
     "china-law",
+    "enterprise-legal",
     "codex",
     "skills",
     "litigation",
@@ -21,13 +22,14 @@
   "interface": {
     "displayName": "Legal Skills",
     "shortDescription": "Chinese legal workflow skills",
-    "longDescription": "A Chinese legal workflow skill system for AI agents, covering legal consultation, civil litigation, criminal defense, labor disputes, bankruptcy procedures, contract drafting and review, product legal, regulatory compliance, legal research, and document export workflows.",
+    "longDescription": "A Chinese legal workflow skill system for AI agents, covering enterprise legal operations, legal consultation, civil litigation, criminal defense, labor disputes, bankruptcy procedures, contract drafting and review, product legal, regulatory compliance, legal research, and document export workflows.",
     "developerName": "Legal Skills Contributors",
     "category": "Productivity",
     "capabilities": ["Read", "Write"],
     "websiteURL": "https://github.com/pa1nrui1/legal-skills",
     "defaultPrompt": [
       "法律工作总控 帮我路由这个法律任务",
+      "企业法务运营 帮我初始化企业内部法务工作区",
       "合同审查 审核这份合同并输出风险清单",
       "法律咨询助手 帮我回复这个客户咨询"
     ],
