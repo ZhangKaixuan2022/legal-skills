@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-06-26
+
+### Word 正式交付与模板克隆
+
+- 法律工作总控新增正式 `.docx` 双通道规则：普通线性文书继续走 `draft.html`、`preflight-meta.json`、`draft_checked.html`、`html_to_docx.py` 和结构体检；模板登记中的要素式起诉状走 `complaint-data.json`、`fill-plan.json`、DOCX 母版克隆填充、模板克隆质控报告和结构体检。
+- `法律文书出稿前审查/scripts/preflight_check.py` 新增要素式起诉状预检入口：支持 `--complaint-data`、`--fill-plan`、`--qc-meta`，检查模板 ID 一致性、母版 manifest、字段来源、表格坐标、锚点模式、读取复查摘要、来源边界记录、法规校验摘要和用户确认记录。
+- `法律文书模板与导出` 新增 DOCX 母版克隆填充链路：`fill_docx_template.py` 按表格坐标和锚点填充，不启用修订痕迹，并清理 `trackRevisions`。
+- 新增 `run_template_clone_qc.py` 与 `run_dual_docx_qc.py`：分别用于模板克隆质控，以及 HTML 导出链路与模板克隆链路的双通道回归验证。
+- `health_check.py` 新增模板克隆 manifest 检查、清洁 DOCX 检查和 `--template-clone-report` 质控报告校验。
+- 新增 4 个委托合同管理 Word profile：委托代理合同、风险义务告知书、委托人陈述笔录/案件沟通记录、服务质量监督卡，并补充对应排版规范。
+- 开源仓库保留 `${LEGAL_TEMPLATE_ROOT}`、`LEGAL_TEMPLATE_CLONE_MANIFEST`、`LEGAL_DOCX_RENDER_SCRIPT` 等环境变量配置边界，不提交作者本机 DOCX 母版路径或运行时路径。
+
 ## 2026-06-24
 
 ### 合同审查

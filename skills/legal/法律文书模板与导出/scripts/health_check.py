@@ -5,7 +5,9 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -16,9 +18,14 @@ SKILL_DIR = Path(__file__).resolve().parents[1]
 LEGAL_DIR = SKILL_DIR.parent
 PROFILES_DIR = SKILL_DIR / "assets" / "profiles"
 MANIFEST_PATH = SKILL_DIR / "assets" / "template-manifest.json"
+CLONE_MANIFEST_PATH = Path(
+    os.environ.get("LEGAL_TEMPLATE_CLONE_MANIFEST", str(SKILL_DIR / "assets" / "template-clone-manifest.json"))
+).expanduser()
 MASTER_SKILL = LEGAL_DIR / "法律工作总控" / "SKILL.md"
 PREFLIGHT_SKILL = LEGAL_DIR / "法律文书出稿前审查" / "SKILL.md"
 EXPORT_SCRIPT = SKILL_DIR / "scripts" / "html_to_docx.py"
+CLONE_FILLER_SCRIPT = SKILL_DIR / "scripts" / "fill_docx_template.py"
+CLONE_QC_SCRIPT = SKILL_DIR / "scripts" / "run_template_clone_qc.py"
 
 FORMAT_PATTERN = re.compile(
     r"Word输出格式设置|Word输出格式|文书格式规范|排版参数|格式说明|页边距|行距|"
@@ -39,6 +46,22 @@ ALLOWED_TECH_STATUS = {"迁移替换", "保留引用", "暂不迁移"}
 def load_json(path: Path) -> dict:
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def has_unresolved_env(value: str) -> bool:
+    return "$" in value and os.path.expandvars(value) == value
+
+
+def resolve_path(value: str) -> Path:
+    return Path(os.path.expandvars(value)).expanduser()
 
 
 def scan_format_candidates() -> list[str]:
@@ -90,6 +113,37 @@ def check_manifest() -> list[str]:
     for item in data.get("technical_plan_assessments", []):
         if item.get("status") not in ALLOWED_TECH_STATUS:
             errors.append(f"invalid tech status for {item.get('source')}: {item.get('status')}")
+    return errors
+
+
+def check_template_clone_manifest() -> list[str]:
+    errors: list[str] = []
+    if not CLONE_MANIFEST_PATH.exists():
+        return ["template clone manifest missing"]
+    try:
+        data = load_json(CLONE_MANIFEST_PATH)
+    except Exception as exc:
+        return [f"template clone manifest parse failed: {exc}"]
+    for item in data.get("templates", []):
+        template_id = item.get("template_id", "")
+        source_value = str(item.get("source_docx", ""))
+        source = resolve_path(source_value)
+        if not template_id:
+            errors.append("template clone item missing template_id")
+        if not source.exists():
+            if has_unresolved_env(source_value):
+                continue
+            errors.append(f"template clone source missing: {source}")
+            continue
+        expected_hash = item.get("sha256")
+        if expected_hash and sha256(source) != expected_hash:
+            errors.append(f"template clone sha256 mismatch: {template_id}")
+        for key in ["expected_tables", "expected_grid_span", "expected_vmerge", "expected_row_heights"]:
+            if key not in item:
+                errors.append(f"template clone {template_id} missing {key}")
+    for path in [CLONE_FILLER_SCRIPT, CLONE_QC_SCRIPT]:
+        if not path.exists():
+            errors.append(f"template clone script missing: {path.name}")
     return errors
 
 
@@ -218,7 +272,23 @@ def check_preflight_integration() -> list[str]:
     return errors
 
 
-def check_docx(path: Path, expect_title: str | None, expect_table: bool) -> list[str]:
+def check_template_clone_report(path: Path) -> list[str]:
+    try:
+        report = load_json(path)
+    except Exception as exc:
+        return [f"template clone report parse failed: {exc}"]
+    if report.get("status") != "PASS":
+        return [f"template clone report not PASS: {report.get('status')}"]
+    return []
+
+
+def check_docx(
+    path: Path,
+    expect_title: str | None,
+    expect_table: bool,
+    *,
+    require_page_number: bool = True,
+) -> list[str]:
     errors: list[str] = []
     try:
         with ZipFile(path) as zf:
@@ -237,10 +307,30 @@ def check_docx(path: Path, expect_title: str | None, expect_table: bool) -> list
         errors.append(f"title not found: {expect_title}")
     if "<w:pgMar" not in document_xml:
         errors.append("page margin not found")
-    if "PAGE" not in footer_xml:
+    if require_page_number and "PAGE" not in footer_xml:
         errors.append("PAGE field not found in footer")
     if expect_table and "<w:tbl>" not in document_xml:
         errors.append("real table not found")
+    return errors
+
+
+def check_clean_clone_docx(path: Path) -> list[str]:
+    errors: list[str] = []
+    try:
+        with ZipFile(path) as zf:
+            names = set(zf.namelist())
+            document_xml = zf.read("word/document.xml").decode("utf-8", errors="ignore")
+            settings_xml = zf.read("word/settings.xml").decode("utf-8", errors="ignore") if "word/settings.xml" in names else ""
+    except Exception as exc:
+        return [f"clean clone docx open failed: {exc}"]
+    if re.search(r"<w:ins(?:\\s|>)", document_xml):
+        errors.append("clean clone contains w:ins")
+    if re.search(r"<w:del(?:\\s|>)", document_xml):
+        errors.append("clean clone contains w:del")
+    if "trackRevisions" in settings_xml:
+        errors.append("clean clone has trackRevisions enabled")
+    if "word/comments.xml" in names:
+        errors.append("clean clone contains comments.xml")
     return errors
 
 
@@ -249,6 +339,8 @@ def main() -> int:
     parser.add_argument("--docx", type=Path)
     parser.add_argument("--expect-title")
     parser.add_argument("--expect-table", action="store_true")
+    parser.add_argument("--expect-clean-clone", action="store_true")
+    parser.add_argument("--template-clone-report", type=Path)
     parser.add_argument("--strict-migration", action="store_true")
     parser.add_argument("--list-tech-references", action="store_true")
     args = parser.parse_args()
@@ -256,6 +348,7 @@ def main() -> int:
     errors: list[str] = []
     profile_errors = check_profiles()
     manifest_errors = check_manifest()
+    clone_manifest_errors = check_template_clone_manifest()
     master_errors = check_master_skill()
     preflight_errors = check_preflight_integration()
     candidates = scan_format_candidates()
@@ -264,17 +357,30 @@ def main() -> int:
     direct_script_errors = check_direct_docx_scripts() if args.strict_migration else []
     errors.extend(profile_errors)
     errors.extend(manifest_errors)
+    errors.extend(clone_manifest_errors)
     errors.extend(master_errors)
     errors.extend(preflight_errors)
     errors.extend(coverage_errors)
     errors.extend(tech_errors)
     errors.extend(direct_script_errors)
     if args.docx:
-        errors.extend(check_docx(args.docx, args.expect_title, args.expect_table))
+        errors.extend(
+            check_docx(
+                args.docx,
+                args.expect_title,
+                args.expect_table,
+                require_page_number=not args.expect_clean_clone,
+            )
+        )
+        if args.expect_clean_clone:
+            errors.extend(check_clean_clone_docx(args.docx))
+    if args.template_clone_report:
+        errors.extend(check_template_clone_report(args.template_clone_report))
 
     print(f"format_candidates_detected: {len(candidates)}")
     print(f"profiles_ok: {not profile_errors}")
     print(f"manifest_ok: {not manifest_errors}")
+    print(f"template_clone_manifest_ok: {not clone_manifest_errors}")
     print(f"master_routing_ok: {not master_errors}")
     print(f"preflight_integration_ok: {not preflight_errors}")
     if args.strict_migration:
@@ -290,6 +396,8 @@ def main() -> int:
             print(f"- {rel}")
     if args.docx:
         print(f"docx_checked: {args.docx}")
+    if args.template_clone_report:
+        print(f"template_clone_report_checked: {args.template_clone_report}")
     if errors:
         print("errors:")
         for error in errors:

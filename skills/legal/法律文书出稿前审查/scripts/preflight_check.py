@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import os
@@ -22,6 +23,9 @@ PROFILES_DIR = EXPORT_SKILL_DIR / "assets" / "profiles"
 MATTER_ROOT = Path(os.environ.get("LEGAL_WORKSPACE", ".")).expanduser()
 SYSTEM_RECORD_ROOT = MATTER_ROOT / "_系统记录"
 CURRENT_MATTER_PATH = SYSTEM_RECORD_ROOT / "当前事项.md"
+CLONE_MANIFEST_PATH = Path(
+    os.environ.get("LEGAL_TEMPLATE_CLONE_MANIFEST", str(EXPORT_SKILL_DIR / "assets" / "template-clone-manifest.json"))
+).expanduser()
 FIXED_IDENTITY = {
     "律所": os.environ.get("LEGAL_FIRM_NAME", "【律师事务所名称】"),
     "律师": os.environ.get("LEGAL_LAWYER_NAME", "【律师姓名】"),
@@ -101,6 +105,24 @@ def load_json(path: Path) -> dict[str, Any]:
     return data
 
 
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def load_clone_template(template_id: str) -> dict[str, Any] | None:
+    if not CLONE_MANIFEST_PATH.exists():
+        return None
+    data = load_json(CLONE_MANIFEST_PATH)
+    for item in data.get("templates", []):
+        if isinstance(item, dict) and item.get("template_id") == template_id:
+            return item
+    return None
+
+
 def parse_html(text: str) -> HtmlFacts:
     parser = FactParser()
     parser.feed(text)
@@ -111,7 +133,7 @@ def parse_html(text: str) -> HtmlFacts:
 def normalize_path(value: Any) -> Path | None:
     if not isinstance(value, str) or not value.strip():
         return None
-    return Path(value).expanduser()
+    return Path(os.path.expandvars(value)).expanduser()
 
 
 def existing_text(path: Path | None) -> str:
@@ -476,13 +498,207 @@ def check(args: argparse.Namespace) -> int:
     return 0 if status in {"PASS", "FIXED_PASS"} else 2
 
 
+def validate_clone_evidence(qc_meta: dict[str, Any], issues: dict[str, list[str]], evidence_required: list[str]) -> None:
+    evidence = qc_meta.get("evidence") if isinstance(qc_meta.get("evidence"), dict) else {}
+    required_evidence = {
+        "reading_review_path": "读取复查摘要",
+        "source_boundary_path": "来源边界记录",
+        "user_confirmation_source": "用户确认记录",
+    }
+    if qc_meta.get("legal_verification_required", True):
+        required_evidence["legal_verification_path"] = "法规校验摘要"
+
+    for key, label in required_evidence.items():
+        path = normalize_path(evidence.get(key))
+        text = existing_text(path)
+        if not path:
+            append_issue(issues, "material", f"缺少{label}路径：evidence.{key}")
+            evidence_required.append(label)
+        elif not path.exists():
+            append_issue(issues, "material", f"{label}文件不存在：{path}")
+            evidence_required.append(str(path))
+        elif not text.strip():
+            append_issue(issues, "material", f"{label}文件为空或不可读：{path}")
+            evidence_required.append(str(path))
+        elif key == "reading_review_path" and "读取复查摘要" not in text:
+            append_issue(issues, "material", "读取复查摘要文件未包含【读取复查摘要】标记")
+        elif key == "source_boundary_path" and not any(mark in text for mark in ["来源", "边界", "未核验", "已核验"]):
+            append_issue(issues, "business", "来源边界记录内容未体现来源边界或核验状态")
+        elif key == "legal_verification_path" and not any(mark in text for mark in ["法规校验摘要", "现行有效", "已核验", "法宝", "官方"]):
+            append_issue(issues, "business", "法规校验摘要内容未体现法规核验状态")
+
+
+def validate_clone_field_sources(
+    complaint_data: dict[str, Any],
+    fill_plan: dict[str, Any],
+    issues: dict[str, list[str]],
+    confirmations: list[str],
+) -> None:
+    fields = complaint_data.get("fields")
+    source_map = complaint_data.get("source_map")
+    known_gaps = complaint_data.get("known_gaps", [])
+    plan_fields = fill_plan.get("fields")
+
+    if not isinstance(fields, dict) or not fields:
+        append_issue(issues, "business", "complaint-data.json 必须包含非空 fields 对象")
+        fields = {}
+    if not isinstance(source_map, dict):
+        append_issue(issues, "business", "complaint-data.json 必须包含 source_map 对象")
+        source_map = {}
+    if not isinstance(known_gaps, list):
+        append_issue(issues, "business", "complaint-data.json known_gaps 必须是数组")
+        known_gaps = []
+    if known_gaps:
+        append_issue(issues, "confirmation", "complaint-data.json 存在字段缺口，需用户确认后才能正式填充：" + "；".join(map(str, known_gaps)))
+        confirmations.extend(map(str, known_gaps))
+
+    gap_ids = {str(item.get("field_id") if isinstance(item, dict) else item) for item in known_gaps}
+    for field_id in fields:
+        if field_id not in source_map and field_id not in gap_ids:
+            append_issue(issues, "business", f"字段缺少来源或缺口说明：{field_id}")
+
+    if not isinstance(plan_fields, list) or not plan_fields:
+        append_issue(issues, "business", "fill-plan.json 必须包含非空 fields 数组")
+        return
+
+    seen_targets: set[tuple[int, int, int, str]] = set()
+    for idx, field in enumerate(plan_fields, 1):
+        if not isinstance(field, dict):
+            append_issue(issues, "business", f"fill-plan 字段 #{idx} 不是对象")
+            continue
+        field_id = str(field.get("field_id") or "")
+        if not field_id:
+            append_issue(issues, "business", f"fill-plan 字段 #{idx} 缺少 field_id")
+        elif field_id not in fields:
+            append_issue(issues, "business", f"fill-plan 字段不在 complaint-data.fields 中：{field_id}")
+        target = field.get("target")
+        if not isinstance(target, dict):
+            append_issue(issues, "business", f"fill-plan 字段 {field_id or idx} 缺少 target")
+            continue
+        missing_coords = [key for key in ["table_index", "row_index", "cell_index"] if key not in target]
+        if missing_coords:
+            append_issue(issues, "business", f"fill-plan 字段 {field_id or idx} 缺少表格坐标：" + "、".join(missing_coords))
+        else:
+            try:
+                target_key = (
+                    int(target["table_index"]),
+                    int(target["row_index"]),
+                    int(target["cell_index"]),
+                    str(target.get("anchor_text") or ""),
+                )
+                if target_key in seen_targets:
+                    append_issue(issues, "business", f"fill-plan 重复命中同一坐标和锚点：{field_id or idx}")
+                seen_targets.add(target_key)
+            except Exception:
+                append_issue(issues, "business", f"fill-plan 字段 {field_id or idx} 表格坐标必须为数字")
+        mode = str(field.get("mode") or "")
+        if mode not in {"append_after_anchor", "replace_anchor", "replace_cell"}:
+            append_issue(issues, "business", f"fill-plan 字段 {field_id or idx} mode 非法：{mode}")
+        if mode in {"append_after_anchor", "replace_anchor"} and not str(target.get("anchor_text") or ""):
+            append_issue(issues, "business", f"fill-plan 字段 {field_id or idx} 使用锚点模式但缺少 anchor_text")
+
+
+def check_clone(args: argparse.Namespace) -> int:
+    issues: dict[str, list[str]] = {}
+    confirmations: list[str] = []
+    evidence_required: list[str] = []
+    auto_fixes: list[str] = []
+
+    complaint_data: dict[str, Any] = {}
+    fill_plan: dict[str, Any] = {}
+    qc_meta: dict[str, Any] = {}
+    for path, label, target in [
+        (args.complaint_data, "complaint-data.json", "complaint"),
+        (args.fill_plan, "fill-plan.json", "fill_plan"),
+        (args.qc_meta, "qc-meta.json", "qc_meta"),
+    ]:
+        if not path or not path.exists():
+            append_issue(issues, "business", f"{label} 不存在：{path}")
+            continue
+        try:
+            data = load_json(path)
+        except Exception as exc:
+            append_issue(issues, "business", f"{label} 无法解析：{exc}")
+            continue
+        if target == "complaint":
+            complaint_data = data
+        elif target == "fill_plan":
+            fill_plan = data
+        else:
+            qc_meta = data
+
+    template_id = str(complaint_data.get("template_id") or fill_plan.get("template_id") or qc_meta.get("template_id") or "")
+    if not template_id:
+        append_issue(issues, "business", "要素式文书缺少 template_id")
+    if template_id:
+        for label, data in [("complaint-data.json", complaint_data), ("fill-plan.json", fill_plan), ("qc-meta.json", qc_meta)]:
+            value = str(data.get("template_id") or "")
+            if value and value != template_id:
+                append_issue(issues, "business", f"{label} template_id 不一致：{value} != {template_id}")
+        try:
+            template = load_clone_template(template_id)
+        except Exception as exc:
+            template = None
+            append_issue(issues, "business", f"template-clone-manifest.json 无法解析：{exc}")
+        if not template:
+            append_issue(issues, "business", f"template_id 未命中 template-clone-manifest.json：{template_id}")
+        else:
+            source_docx = Path(os.path.expandvars(str(template.get("source_docx") or ""))).expanduser()
+            if not source_docx.exists():
+                append_issue(issues, "material", f"DOCX 母版不存在：{source_docx}")
+            elif template.get("sha256") and sha256(source_docx) != template.get("sha256"):
+                append_issue(issues, "business", f"DOCX 母版 sha256 不匹配：{template_id}")
+            if template.get("doc_type") != "民事起诉状":
+                append_issue(issues, "business", f"要素式模板 doc_type 非民事起诉状：{template.get('doc_type')}")
+
+    for key in ["template_id", "matter_path", "system_record_path", "evidence"]:
+        if key not in qc_meta or qc_meta.get(key) in ("", None, {}):
+            append_issue(issues, "business", f"qc-meta.json 缺少必要字段：{key}")
+    if qc_meta:
+        validate_matter_paths(qc_meta, issues)
+        validate_clone_evidence(qc_meta, issues, evidence_required)
+    if complaint_data or fill_plan:
+        validate_clone_field_sources(complaint_data, fill_plan, issues, confirmations)
+
+    status, next_owner, next_action, rerun_required = choose_status(issues, auto_fixes)
+    if status in {"PASS", "FIXED_PASS"}:
+        next_action = "使用 complaint-data.json、fill-plan.json 进入 DOCX 母版克隆填充和模板克隆质控。"
+    elif next_owner == "business_skill":
+        next_action = "退回业务 Skill 整改 complaint-data.json、fill-plan.json 或 qc-meta.json 后复审。"
+    make_report(
+        args.report,
+        status,
+        next_owner,
+        next_action,
+        str(qc_meta.get("source_skill") or "诉讼文书起草"),
+        issues,
+        confirmations,
+        evidence_required,
+        auto_fixes,
+        rerun_required,
+    )
+    print(f"review_status: {status}")
+    print(f"next_owner: {next_owner}")
+    print(f"report: {args.report}")
+    return 0 if status in {"PASS", "FIXED_PASS"} else 2
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Review legal HTML before DOCX export.")
-    parser.add_argument("--html", required=True, type=Path)
-    parser.add_argument("--meta", required=True, type=Path)
-    parser.add_argument("--output-html", required=True, type=Path)
+    parser = argparse.ArgumentParser(description="Review legal deliverables before DOCX export.")
+    parser.add_argument("--html", type=Path)
+    parser.add_argument("--meta", type=Path)
+    parser.add_argument("--output-html", type=Path)
+    parser.add_argument("--complaint-data", type=Path)
+    parser.add_argument("--fill-plan", type=Path)
+    parser.add_argument("--qc-meta", type=Path)
     parser.add_argument("--report", required=True, type=Path)
     args = parser.parse_args()
+    if args.complaint_data or args.fill_plan or args.qc_meta:
+        if not (args.complaint_data and args.fill_plan and args.qc_meta):
+            parser.error("--complaint-data, --fill-plan and --qc-meta must be provided together")
+        return check_clone(args)
+    if not (args.html and args.meta and args.output_html):
+        parser.error("--html, --meta and --output-html are required for HTML preflight")
     return check(args)
 
 
