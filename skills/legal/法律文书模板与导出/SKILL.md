@@ -164,7 +164,7 @@ python scripts/audit_formal_delivery.py \
   --docx 正式交付文件.docx
 ```
 
-正式 `.docx` 不得仅凭“文件已生成”标记完成；同一交付包必须具备 `draft.html`、`preflight-meta.json`、`draft_checked.html`、`出稿前审查报告.md`、最终 `.docx` 和 `health-check-report.txt`。审查报告状态必须为 `PASS` 或 `FIXED_PASS`，健康检查记录必须包含 `health_check_ok: True` 并指向最终 `.docx`。
+正式 `.docx` 不得仅凭“文件已生成”标记完成。普通 HTML 交付包必须具备 `draft.html`、`preflight-meta.json`、`draft_checked.html`、`出稿前审查报告.md`、最终 `.docx` 和 `health-check-report.txt`；要素式模板克隆交付包必须具备 `complaint-data.json`、`fill-plan.json`、`qc-meta.json`、`要素式出稿前审查报告.md` 或 `出稿前审查报告.md`、`qc-report.json`、最终 `.docx` 和 `health-check-report.txt`。审查报告状态必须为 `PASS` 或 `FIXED_PASS`，健康检查记录必须包含 `health_check_ok: True` 并指向最终 `.docx`；要素式模板克隆包还必须指向 `qc-report.json` 且该报告状态为 `PASS`。
 
 ## 迁移边界
 

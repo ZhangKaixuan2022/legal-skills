@@ -40,7 +40,7 @@ class LegalCitationPreflightTests(unittest.TestCase):
             f"""<!doctype html><html><body>
 <h1>法规触发校验测试文书</h1>
 <p>{body}</p>
-<p class="signature">广东广和（长春）律师事务所 律师：潘睿</p>
+<p class="signature">【律所名称】 律师：【律师姓名】</p>
 </body></html>""",
             encoding="utf-8",
         )

@@ -30,11 +30,11 @@ LEGAL_TEMPLATE_REGISTRY_PATH = Path(
     os.environ.get("LEGAL_TEMPLATE_REGISTRY", str(EXPORT_SKILL_DIR / "assets" / "legal-template-registry.json"))
 ).expanduser()
 FIXED_IDENTITY = {
-    "律所": "广东广和（长春）律师事务所",
-    "律师": "潘睿",
-    "地址": "净月区华荣泰七栋608室",
-    "电话": "18686488305",
-    "邮箱": "418869057@qq.com",
+    "律所": "【律所名称】",
+    "律师": "【律师姓名】",
+    "地址": "【律所地址】",
+    "电话": "【联系电话】",
+    "邮箱": "【电子邮箱】",
 }
 OLD_CONTACT_PATTERNS = [
     re.compile(r"1[3-9]\d{9}"),
@@ -239,7 +239,7 @@ def fix_identity(html_text: str) -> tuple[str, list[str]]:
         fixed = fixed.replace("</body>", f"<p class=\"signature\">{lawyer_line}</p>\n</body>")
         changes.append("补入固定律师姓名")
     fixed_lines: list[str] = []
-    identity_markers = ["潘睿", "律师", "律师事务所", "律所", "广东广和", "电话", "邮箱"]
+    identity_markers = ["律师", "律师事务所", "律所", "电话", "邮箱"]
     for line in fixed.splitlines():
         new_line = line
         if any(marker in line for marker in identity_markers):
@@ -280,6 +280,15 @@ def fix_identity(html_text: str) -> tuple[str, list[str]]:
                         if value != replacement:
                             new_line = new_line.replace(value, replacement)
                             changes.append(f"替换固定联系方式：{value} -> {replacement}")
+                for label, key in [("电话", "电话"), ("邮箱", "邮箱")]:
+                    replaced = re.sub(
+                        rf"({label}[：:]\s*)([^\s<]+)",
+                        rf"\1{FIXED_IDENTITY[key]}",
+                        new_line,
+                    )
+                    if replaced != new_line:
+                        new_line = replaced
+                        changes.append(f"替换固定{label}")
         fixed_lines.append(new_line)
     fixed = "\n".join(fixed_lines)
     return fixed, changes

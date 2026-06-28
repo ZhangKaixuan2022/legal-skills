@@ -83,11 +83,11 @@ def fixture_private_lending_basic() -> tuple[dict[str, Any], dict[str, Any]]:
         "template_id": "civil_complaint_private_lending_v1",
         "fields": {
             "plaintiff.natural.name": "张三",
-            "plaintiff.natural.phone": "13800000000",
-            "plaintiff.natural.id_number": "220102199001011234",
+            "plaintiff.natural.phone": "01000000000",
+            "plaintiff.natural.id_number": "000000000000000001",
             "service.address": "长春市净月区示例地址",
             "service.receiver": "张三",
-            "service.phone": "13800000000",
+            "service.phone": "01000000000",
             "claims.principal": "100000元",
             "claims.interest": "5000元",
             "claims.total": "105000元",
@@ -120,13 +120,13 @@ def fixture_private_lending_basic() -> tuple[dict[str, Any], dict[str, Any]]:
             },
             {
                 "field_id": "plaintiff.natural.phone",
-                "value": "13800000000",
+                "value": "01000000000",
                 "target": {"table_index": 1, "row_index": 3, "cell_index": 2, "anchor_text": "联系电话："},
                 "mode": "append_after_anchor"
             },
             {
                 "field_id": "plaintiff.natural.id_number",
-                "value": "220102199001011234",
+                "value": "000000000000000001",
                 "target": {"table_index": 1, "row_index": 3, "cell_index": 2, "anchor_text": "证件号码："},
                 "mode": "append_after_anchor"
             },
@@ -144,7 +144,7 @@ def fixture_private_lending_basic() -> tuple[dict[str, Any], dict[str, Any]]:
             },
             {
                 "field_id": "service.phone",
-                "value": "13800000000",
+                "value": "01000000000",
                 "target": {"table_index": 1, "row_index": 6, "cell_index": 2, "anchor_text": "电话："},
                 "mode": "append_after_anchor"
             },

@@ -82,11 +82,11 @@ python scripts/preflight_check.py \
 - 如正文引用法律、法规、司法解释、案例、裁判规则等内容，必须有法规校验摘要。
 - 如 `required_confirmations` 非空，必须能在用户确认记录中找到对应确认内容。
 - 检查固定身份信息：
-  - 律所：广东广和（长春）律师事务所
-  - 律师：潘睿
-  - 地址：净月区华荣泰七栋608室
-  - 电话：18686488305
-  - 邮箱：418869057@qq.com
+  - 律所：【律所名称】
+  - 律师：【律师姓名】
+  - 地址：【律所地址】
+  - 电话：【联系电话】
+  - 邮箱：【电子邮箱】
 - 检查 HTML 结构至少包含标题和正文；含表格时必须保留为真实 `table`。
 - 检查 `profile` 是否能匹配 `法律文书模板与导出/assets/profiles/` 中的 profile；未命中时使用 `fallback_desktop_word`。
 - 如 `preflight-meta.json` 记录了 `template_selection_path` 或 `content_template_id`，必须核验模板选择记录、模板版本、模板 sha256、profile 版本和兼容 profile；未登记模板、sha256 不一致、profile 不兼容或解除委托协议误用 `entrustment_contract` 时，必须阻断。

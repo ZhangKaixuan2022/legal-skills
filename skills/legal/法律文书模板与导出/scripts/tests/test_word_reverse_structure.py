@@ -59,7 +59,7 @@ class WordReverseStructureTests(unittest.TestCase):
             docx = Path(tmp) / "html.docx"
             write_docx(
                 docx,
-                texts=["民事起诉状", "事实与理由：合成测试正文", "律师：潘睿"],
+                texts=["民事起诉状", "事实与理由：合成测试正文", "律师：【律师姓名】"],
                 include_table=True,
                 include_page_number=True,
             )
@@ -72,7 +72,7 @@ class WordReverseStructureTests(unittest.TestCase):
                 "--expect-text",
                 "事实与理由：合成测试正文",
                 "--expect-text",
-                "潘睿",
+                "【律师姓名】",
             )
             self.assertEqual(proc.returncode, 0, proc.stdout)
             self.assertIn("health_check_ok: True", proc.stdout)
@@ -88,10 +88,10 @@ class WordReverseStructureTests(unittest.TestCase):
                 "民事起诉状",
                 "--expect-table",
                 "--expect-text",
-                "律师：潘睿",
+                "律师：【律师姓名】",
             )
             self.assertNotEqual(proc.returncode, 0, proc.stdout)
-            self.assertIn("expected text not found: 律师：潘睿", proc.stdout)
+            self.assertIn("expected text not found: 律师：【律师姓名】", proc.stdout)
 
     def test_clone_docx_requires_clean_output_and_filled_values(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

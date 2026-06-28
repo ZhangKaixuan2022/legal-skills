@@ -88,10 +88,10 @@ def write_html_fixture(root: Path, matter_path: str, system_record_path: str, fo
     draft.write_text(
         """<!doctype html><html><body><article>
 <h1>民事起诉状</h1>
-<p class=\"meta\">原告：测试原告，联系电话：18686488305。</p>
+<p class=\"meta\">原告：测试原告，联系电话：【联系电话】。</p>
 <p>诉讼请求：请求被告支付测试款项1000元。</p>
 <p>事实与理由：本段为HTML原通道导出测试正文，不引用法律条文。</p>
-<p class=\"signature\">律师：潘睿</p>
+<p class=\"signature\">律师：【律师姓名】</p>
 <table><tr><th>项目</th><th>内容</th></tr><tr><td>本金</td><td>1000元</td></tr></table>
 </article></body></html>
 """,
@@ -283,7 +283,7 @@ def main() -> int:
                 "--expect-text",
                 "事实与理由：本段为HTML原通道导出测试正文，不引用法律条文。",
                 "--expect-text",
-                "潘睿",
+                "【律师姓名】",
             ],
         ),
         (

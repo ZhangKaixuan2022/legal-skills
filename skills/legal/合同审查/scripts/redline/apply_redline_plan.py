@@ -903,10 +903,10 @@ def main() -> int:
     parser.add_argument("--plan", required=True, help="redline-plan.json 路径")
     parser.add_argument("--output", required=True, help="输出审核修订稿 DOCX 路径")
     parser.add_argument("--log", help="执行日志 JSON 路径")
-    parser.add_argument("--author", default="潘睿", help="批注/修订作者")
+    parser.add_argument("--author", default="【律师姓名】", help="批注/修订作者")
     parser.add_argument(
         "--organization",
-        default="广东广和（长春）律师事务所",
+        default="【律所名称】",
         help="批注/修订作者机构",
     )
     args = parser.parse_args()

@@ -39,9 +39,9 @@ _系统记录/合同/<客户或项目>/<合同编号-合同简称>/
     "contract_id": "客户-合同关键词-01",
     "contract_name": "合同名称",
     "client_name": "客户名称",
-    "reviewer": "潘睿",
-    "reviewer_organization": "广东广和（长春）律师事务所",
-    "reviewer_contact": "18686488305 / 418869057@qq.com",
+    "reviewer": "【律师姓名】",
+    "reviewer_organization": "【律所名称】",
+    "reviewer_contact": "【联系电话】 / 【电子邮箱】",
     "party_role": "甲方 / 乙方 / 中立 / 其他",
     "party_role_confirmed": true,
     "party_role_confirmation_source": "用户确认：YYYY-MM-DD 对话",
@@ -107,7 +107,7 @@ _系统记录/合同/<客户或项目>/<合同编号-合同简称>/
 
 生成 `redline-plan.json` 前，必须把以下信息固定在 `meta` 或 `summary` 中：
 
-1. 审查人信息：默认使用潘睿、广东广和（长春）律师事务所、18686488305、418869057@qq.com；用户另行指定时以本次确认记录为准。
+1. 审查人信息：默认使用【律师姓名】、【律所名称】、【联系电话】、【电子邮箱】；用户另行指定时以本次确认记录为准。
 2. 审查立场：必须来自用户明确确认，写入 `party_role`、`party_role_confirmed=true` 和 `party_role_confirmation_source`。未确认时不得生成 redline-plan，也不得执行红线稿；不得写成 `待补充` 后继续执行。
 3. 审查时限：用户给出截止时间、签署时间、上线期、投放期或履行启动期时，写入 `review_deadline` 或 `business_launch_date`；没有则写 `未提及/待补充`。
 4. 文档路径：`source_docx` 指向原合同；`formal_opinion_path` 指向飞书审查报告、审查意见书或本地意见稿；`output_docx` 在执行日志中生成，不写回原合同。
@@ -152,8 +152,8 @@ python scripts/redline/apply_redline_plan.py \
   --plan redline-plan.json \
   --output 合同_审核修订稿.docx \
   --log redline-execution-log.json \
-  --author "潘睿" \
-  --organization "广东广和（长春）律师事务所"
+  --author "【律师姓名】" \
+  --organization "【律所名称】"
 ```
 
 ## 八、执行后检查

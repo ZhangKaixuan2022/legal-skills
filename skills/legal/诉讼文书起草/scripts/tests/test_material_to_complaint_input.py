@@ -23,21 +23,21 @@ def base_packet(case_cause: str = "民间借贷纠纷") -> dict:
         "plaintiff": {
             "type": "natural",
             "name": "张三",
-            "id_number": "220102199001011234",
-            "phone": "13800000000",
+            "id_number": "000000000000000001",
+            "phone": "01000000000",
             "address": "长春市净月区示例地址一",
         },
         "defendant": {
             "type": "natural",
             "name": "李四",
-            "id_number": "220102198812121234",
-            "phone": "13900000000",
+            "id_number": "000000000000000002",
+            "phone": "01000000001",
             "address": "长春市朝阳区示例地址二",
         },
         "service": {
             "type": "natural",
             "name": "张三",
-            "phone": "13800000000",
+            "phone": "01000000000",
             "address": "长春市净月区示例地址一",
         },
         "facts": {
@@ -74,7 +74,7 @@ class MaterialToComplaintInputTests(unittest.TestCase):
             data = json.loads((root / "out" / "complaint-data.json").read_text(encoding="utf-8"))
             self.assertEqual(data["template_id"], "civil_complaint_private_lending_v1")
             self.assertEqual(data["fields"]["plaintiff.natural.name"], "张三")
-            self.assertEqual(data["fields"]["defendant.natural.id_number"], "220102198812121234")
+            self.assertEqual(data["fields"]["defendant.natural.id_number"], "000000000000000002")
             self.assertEqual(data["fields"]["claims.principal"], "100000元")
             self.assertEqual(data["fields"]["claims.total"], "105000元")
             self.assertIn("银行转账凭证", data["fields"]["evidence.summary"])

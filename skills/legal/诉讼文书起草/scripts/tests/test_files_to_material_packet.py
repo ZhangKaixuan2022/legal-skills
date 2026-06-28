@@ -76,12 +76,12 @@ class FilesToMaterialPacketTests(unittest.TestCase):
                 [
                     "案由：民间借贷纠纷",
                     "原告姓名：张三",
-                    "原告身份证号：220102199001011234",
-                    "原告电话：13800000000",
+                    "原告身份证号：000000000000000001",
+                    "原告电话：01000000000",
                     "原告地址：长春市净月区示例地址一",
                     "被告姓名：李四",
-                    "被告身份证号：220102198812121234",
-                    "被告电话：13900000000",
+                    "被告身份证号：000000000000000002",
+                    "被告电话：01000000001",
                     "被告地址：长春市朝阳区示例地址二",
                 ],
             )
@@ -101,7 +101,7 @@ class FilesToMaterialPacketTests(unittest.TestCase):
             data_path = root / "out" / "complaint_input" / "complaint-data.json"
             data = json.loads(data_path.read_text(encoding="utf-8"))
             self.assertEqual(data["fields"]["plaintiff.natural.name"], "张三")
-            self.assertEqual(data["fields"]["defendant.natural.id_number"], "220102198812121234")
+            self.assertEqual(data["fields"]["defendant.natural.id_number"], "000000000000000002")
             self.assertEqual(data["fields"]["claims.principal"], "100000元")
             self.assertIn("银行转账凭证", data["fields"]["evidence.summary"])
             report = (root / "out" / "file-reading-review.md").read_text(encoding="utf-8")

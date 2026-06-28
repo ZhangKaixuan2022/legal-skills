@@ -87,7 +87,7 @@ class HtmlInputSafetyTests(unittest.TestCase):
                 """<!doctype html><html><body>
 <h1>HTML 输入安全测试</h1>
 <aside><custom-law-node>非标准标签中的关键正文不能丢失。</custom-law-node></aside>
-<p class="signature">广东广和（长春）律师事务所 律师：潘睿</p>
+<p class="signature">【律所名称】 律师：【律师姓名】</p>
 </body></html>""",
             )
             self.assertEqual(proc.returncode, 0, proc.stdout)
@@ -128,7 +128,7 @@ class HtmlInputSafetyTests(unittest.TestCase):
 <h1>HTML 输入安全测试</h1>
 <p>   </p>
 <p>空段落之后的正文必须保留。</p>
-<p class="signature">广东广和（长春）律师事务所 律师：潘睿</p>
+<p class="signature">【律所名称】 律师：【律师姓名】</p>
 </body></html>""",
             )
             self.assertEqual(proc.returncode, 0, proc.stdout)

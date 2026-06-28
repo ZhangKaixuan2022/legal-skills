@@ -22,7 +22,7 @@ def write_checked_html(path: Path) -> None:
 <body>
 <h1>合成测试文书</h1>
 <p>这是用于失败状态禁止导出硬门禁测试的合成正文。</p>
-<p class="signature">律师：潘睿</p>
+<p class="signature">律师：【律师姓名】</p>
 </body>
 </html>
 """,

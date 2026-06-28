@@ -13,7 +13,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 
-from helpers import EXPORT, HEALTH, PREFLIGHT, SELECTOR, export_python, make_workspace
+from helpers import EXPORT, HEALTH, PREFLIGHT, SELECTOR, make_workspace
 
 
 def file_sha256(path: Path) -> str:
@@ -338,6 +338,61 @@ class TemplateRegistryAndFormatGateTests(unittest.TestCase):
             self.assertEqual(data["profile_id"], "litigation_standard")
             self.assertEqual(data["format_reference_source"], "诉讼文书起草/templates/证据目录格式.md")
 
+    def test_selector_uses_authorization_reference_not_entrustment_contract(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = self.select(
+                root,
+                "--source-skill",
+                "委托合同管理",
+                "--doc-type",
+                "授权委托书",
+                "--business-scene",
+                "案件委托手续",
+                "--user-request",
+                "生成授权委托书，不是委托代理合同",
+            )
+            self.assertEqual(data["selection_type"], "format_reference")
+            self.assertEqual(data["profile_id"], "entrustment_authorization")
+            self.assertEqual(data["format_reference_source"], "委托合同管理/references/授权委托书排版规范.md")
+            self.assertNotIn("content_template_id", data)
+
+    def test_selector_uses_contract_standard_fallback_when_no_specific_contract_template(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = self.select(
+                root,
+                "--source-skill",
+                "合同起草",
+                "--doc-type",
+                "软件开发合同",
+                "--business-scene",
+                "软件委托开发",
+                "--user-request",
+                "起草SaaS服务合同，没有专门合同模板",
+            )
+            self.assertIn(data["selection_type"], {"format_reference", "profile_fallback"})
+            self.assertEqual(data["profile_id"], "contract_standard")
+            self.assertNotIn("content_template_id", data)
+
+    def test_selector_does_not_match_registered_template_from_negated_doc_type(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = self.select(
+                root,
+                "--source-skill",
+                "合同起草",
+                "--doc-type",
+                "补充协议",
+                "--business-scene",
+                "合同配套文本",
+                "--user-request",
+                "生成补充协议，不是解除委托协议，也不是终止委托协议",
+            )
+            self.assertIn(data["selection_type"], {"format_reference", "profile_fallback"})
+            self.assertEqual(data["profile_id"], "contract_standard")
+            self.assertNotIn("content_template_id", data)
+
     def test_format_reference_requires_document_name_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -361,7 +416,7 @@ class TemplateRegistryAndFormatGateTests(unittest.TestCase):
             ("民事一审诉讼", "代理词", "庭审提交", "生成普通代理词", "litigation_standard", {"profile_fallback"}),
             ("民事一审诉讼", "财产保全申请书", "诉前保全", "冻结被告账户", "litigation_standard", {"profile_fallback"}),
             ("法规案例检索", "法律检索报告", "类案检索", "输出律师版检索报告", "legal_report", {"profile_fallback", "format_reference"}),
-            ("合同起草", "软件开发合同", "软件委托开发", "起草SaaS服务合同", "contract_standard", {"registered_content_template", "profile_fallback"}),
+            ("合同起草", "软件开发合同", "软件委托开发", "起草SaaS服务合同", "contract_standard", {"profile_fallback"}),
             ("民事判决书", "民事判决书", "法院文书", "生成判决书样式文本", "judgment_style", {"format_reference", "profile_fallback"}),
             ("法律工作总控", "交接备忘录", "内部记录", "生成普通备忘录", "fallback_desktop_word", {"profile_fallback"}),
         ]
@@ -470,7 +525,7 @@ class TemplateRegistryAndFormatGateTests(unittest.TestCase):
 <h1>解除委托协议</h1>
 <p class="meta">甲方：长春新同洲物业服务有限公司</p>
 <p>正文测试段落。</p>
-<p class="signature">广东广和（长春）律师事务所 律师：潘睿</p>
+<p class="signature">【律所名称】 律师：【律师姓名】</p>
 </body></html>""",
                 encoding="utf-8",
             )

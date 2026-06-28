@@ -16,13 +16,13 @@ from zipfile import ZipFile
 from helpers import EXPORT, PREFLIGHT, export_python, make_workspace
 
 FIXED_VALUES = [
-    "广东广和（长春）律师事务所",
-    "潘睿",
-    "净月区华荣泰七栋608室",
-    "18686488305",
-    "418869057@qq.com",
+    "【律所名称】",
+    "【律师姓名】",
+    "【律所地址】",
+    "【联系电话】",
+    "【电子邮箱】",
 ]
-OLD_VALUES = ["吉林旧所律师事务所", "李四", "旧地址", "13900000000", "old@example.com"]
+OLD_VALUES = ["吉林旧所律师事务所", "李四", "旧地址", "01000000001", "旧邮箱"]
 
 
 def docx_text(path: Path) -> str:
@@ -58,7 +58,7 @@ class FixedIdentityDeliveryTests(unittest.TestCase):
             """<!doctype html><html><body>
 <h1>身份信息固定测试文书</h1>
 <p>本文书仅用于身份信息固定测试，不涉及真实案件材料。</p>
-<p class="signature">吉林旧所律师事务所 律师：李四 地址：旧地址 电话：13900000000 邮箱：old@example.com</p>
+<p class="signature">吉林旧所律师事务所 律师：李四 地址：旧地址 电话：01000000001 邮箱：旧邮箱</p>
 </body></html>""",
             encoding="utf-8",
         )

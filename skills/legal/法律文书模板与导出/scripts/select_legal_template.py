@@ -50,10 +50,6 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def has_unresolved_env(value: str) -> bool:
-    return "$" in value and os.path.expandvars(value) == value
-
-
 def resolve_config_path(value: str) -> Path:
     expanded = Path(os.path.expandvars(value)).expanduser()
     if expanded.is_absolute():
@@ -305,6 +301,7 @@ def infer_profile_fallback(
 def score_template(template: dict[str, Any], query: str, source_template_path: str | None) -> tuple[int, list[str]]:
     reasons: list[str] = []
     score = 0
+    has_doc_type_hit = False
     if source_template_path:
         source_path = str(resolve_config_path(str(template.get("source_path") or "")).resolve())
         supplied_path = str(resolve_config_path(source_template_path).resolve())
@@ -313,14 +310,18 @@ def score_template(template: dict[str, Any], query: str, source_template_path: s
             reasons.append("source_path exact match")
         else:
             return 0, []
-    excludes = text_hits(query, [str(item) for item in template.get("exclude_keywords", [])])
+    excludes = positive_text_hits(query, [str(item) for item in template.get("exclude_keywords", [])])
     if excludes:
         return 0, [f"excluded by keywords: {', '.join(excludes)}"]
     for field, weight in [("doc_types", 30), ("business_scenes", 20), ("keywords", 10)]:
-        hits = text_hits(query, [str(item) for item in template.get(field, [])])
+        hits = positive_text_hits(query, [str(item) for item in template.get(field, [])])
         if hits:
+            if field == "doc_types":
+                has_doc_type_hit = True
             score += weight * len(hits)
             reasons.append(f"{field}: {', '.join(hits)}")
+    if not source_template_path and not has_doc_type_hit:
+        return 0, ["missing doc_types match"]
     return score, reasons
 
 
@@ -344,8 +345,7 @@ def select_template(
         score, reasons = score_template(template, query, source_template_path)
         if score <= 0:
             continue
-        source_value = str(template.get("source_path") or "")
-        source_path = resolve_config_path(source_value)
+        source_path = resolve_config_path(str(template.get("source_path") or ""))
         actual_sha = sha256(source_path) if source_path.exists() else ""
         candidates.append(
             {
@@ -356,6 +356,7 @@ def select_template(
                 "source_path": str(source_path),
                 "expected_sha256": template.get("sha256"),
                 "actual_sha256": actual_sha,
+                "source_type": template.get("source_type"),
                 "default_profile": template.get("default_profile"),
                 "compatible_profiles": template.get("compatible_profiles", []),
                 "profile_versions": template.get("profile_versions", {}),
@@ -399,6 +400,17 @@ def select_template(
     profile = preferred_profile or selected["default_profile"]
     if profile not in selected["compatible_profiles"]:
         raise ValueError(f"profile {profile} is not compatible with template {selected['template_id']}")
+    if selected["source_type"] == "format_reference":
+        return profile_selection(
+            selection_type="format_reference",
+            source_skill=source_skill,
+            doc_type=doc_type,
+            business_scene=business_scene,
+            profile=profile,
+            reasons=selected["reasons"],
+            format_reference_source=selected["source_path"],
+            candidates=candidates,
+        )
     return {
         "selection_status": "PASS",
         "selection_type": "registered_content_template",

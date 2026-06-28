@@ -24,7 +24,7 @@
       "owner_skill": "委托合同管理",
       "source_type": "format_reference",
       "source_path": "委托合同管理/references/委托代理合同排版规范.md",
-      "sha256": "8eb077333e83b157a515f930afebc066bafe3d0d06fcaae2f328a5c4b85ea636",
+      "sha256": "f9ebed974db26fbd45aa84378079752b23483eb107969ce3dd2e0e7025029de2",
       "doc_types": ["委托代理合同"],
       "business_scenes": ["签订委托代理合同", "案件委托手续"],
       "keywords": ["委托代理合同", "律师费", "代理权限", "承办律师"],
