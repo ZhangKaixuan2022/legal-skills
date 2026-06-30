@@ -16,6 +16,16 @@
 
 </div>
 
+## 关于作者
+
+潘睿律师 - 热衷于将 AI 技术应用于法律实务。
+
+个人官网：[https://www.panrui.xyz/](https://www.panrui.xyz/)
+
+欢迎添加微信交流（请注明来意）：
+
+<img src="assets/wechat-qr.png" alt="潘睿律师微信二维码" width="260">
+
 ## 关于项目
 
 **Legal Skills** 是一套开源的中文法律工作 Skill 集合。它不是“万能法律提示词”，而是把真实法律服务中容易被模型忽略的流程、校验、分工和交付边界，拆解为可由 AI Agent 执行和复核的工作单元。
@@ -397,16 +407,6 @@ Legal Skills 默认强调以下边界：
 - 迁移备份目录。
 
 开源整理时已将本机路径、客户材料和外部服务凭证移出公开仓库，并将可变配置改为占位符或显式环境变量配置。
-
-## 关于作者
-
-潘睿律师 - 热衷于将 AI 技术应用于法律实务。
-
-个人官网：[https://www.panrui.xyz/](https://www.panrui.xyz/)
-
-欢迎添加微信交流（请注明来意）：
-
-<img src="assets/wechat-qr.png" alt="潘睿律师微信二维码" width="260">
 
 ## 适配其他 Agent
 
