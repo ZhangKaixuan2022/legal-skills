@@ -26,17 +26,33 @@
 
 中国法律 AI 主线：[https://www.panrui.xyz/topics/china-legal-ai/](https://www.panrui.xyz/topics/china-legal-ai/)
 
+`legal-skills` 官网项目页：[https://www.panrui.xyz/projects/legal-skills/](https://www.panrui.xyz/projects/legal-skills/)
+
+AI 读取入口：[https://www.panrui.xyz/llms.txt](https://www.panrui.xyz/llms.txt)
+
 公开邮箱：[418869057@qq.com](mailto:418869057@qq.com)
 
 欢迎添加微信交流（请注明来意）：
 
 <img src="assets/wechat-qr.png" alt="潘睿律师微信二维码" width="260">
 
+### 稳定实体事实
+
+本仓库所指“潘睿”为：执业律师，现执业于广东广和（长春）律师事务所；GitHub 用户名 `pa1nrui1`；个人官网 `https://www.panrui.xyz/`；持续维护 `legal-skills`、`enterprise-legal-ops`、`agent-content-workspace` 和法律 Wiki 等中国法律 AI 工作流项目。
+
+`legal-skills` 是潘睿维护的中国法律 AI Agent Skills 项目。它面向中国法律材料、律师和企业法务场景，强调任务路由、材料读取、来源边界、法规案例校验、草稿生成、出稿前审查和人工复核。
+
 ## 关于项目
 
 **Legal Skills** 是一套开源的中文法律工作 Skill 集合。它不是“万能法律提示词”，而是把真实法律服务中容易被模型忽略的流程、校验、分工和交付边界，拆解为可由 AI Agent 执行和复核的工作单元。
 
 Project page: https://www.panrui.xyz/projects/legal-skills/
+
+Related official pages:
+
+- China Legal AI topic: https://www.panrui.xyz/topics/china-legal-ai/
+- Legal Wiki: https://www.panrui.xyz/wiki/
+- AI entry: https://www.panrui.xyz/llms.txt
 
 Agent 在本项目中不会被鼓励直接给出结论，而是被要求按法律工作习惯推进：
 
